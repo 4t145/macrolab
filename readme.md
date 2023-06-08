@@ -97,7 +97,7 @@ let html = html!(<h1 width=500/>);
 ```
 就以类似html的语法声明了一个dom节点
 
-为了添加自节点，我们可以添加第二个partten
+为了添加子节点，我们可以添加第二个pattern
 ```rust
 (<$tag: ident $($attr: ident=$val:literal)* /> [
     $($child:expr),*
