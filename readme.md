@@ -565,71 +565,75 @@ serde_json 的`json`宏使用了 TT Munchers 模式，用声明宏就完成了�
 首先第一个`@array`是我们人为添加的标记，它表示后面的tokens将要被解析为一个array
 
 ```rust
-// 如果是被一对方括号包含的tokens，加上标记array，进入匹配array的模式
-([ $($tt:tt)+ ]) => {
-    $crate::Value::Array(json_internal!(@array [] $($tt)+))
-};
+macro_rules! json_internal {
+    ...省略部分
+    // 如果是被一对方括号包含的tokens，加上标记array，进入匹配array的模式
+    ([ $($tt:tt)+ ]) => {
+        $crate::Value::Array(json_internal!(@array [] $($tt)+))
+    };
 
-// 所有的tt都被解释为了表达式，完成匹配。
-(@array [$($elems:expr,)*]) => {
-    json_internal_vec![$($elems,)*]
-};
+    // 所有的tt都被解释为了表达式，完成匹配。
+    (@array [$($elems:expr,)*]) => {
+        json_internal_vec![$($elems,)*]
+    };
 
-// 同上，区别是尾部没有多余的逗号
-(@array [$($elems:expr),*]) => {
-    json_internal_vec![$($elems),*]
-};
+    // 同上，区别是尾部没有多余的逗号
+    (@array [$($elems:expr),*]) => {
+        json_internal_vec![$($elems),*]
+    };
 
-// 标记     已匹配的            这次匹配的  剩下的 
-// @array   [$($elems:expr,)*]  null        $($rest:tt)*
-// 已经匹配的用方括号括起来，这就好像一个语法制导的构造器，在剩余tt的左边始终是一个有效的array
-// 每次匹配后要么可以产生一个有效值，要么是一个错误
-// 这也得益于json是LL(1)文法
-// 这次匹配到一个关键字null
-(@array [$($elems:expr,)*] null $($rest:tt)*) => {
-    // 我们把null变成一个表达式放进了左边的中括号内，继续解析剩下的
-    json_internal!(@array [$($elems,)* json_internal!(null)] $($rest)*)
-};
+    // 标记     已匹配的            这次匹配的  剩下的 
+    // @array   [$($elems:expr,)*]  null        $($rest:tt)*
+    // 已经匹配的用方括号括起来，这就好像一个语法制导的构造器，在剩余tt的左边始终是一个有效的array
+    // 每次匹配后要么可以产生一个有效值，要么是一个错误
+    // 这也得益于json是LL(1)文法
+    // 这次匹配到一个关键字null
+    (@array [$($elems:expr,)*] null $($rest:tt)*) => {
+        // 我们把null变成一个表达式放进了左边的中括号内，继续解析剩下的
+        json_internal!(@array [$($elems,)* json_internal!(null)] $($rest)*)
+    };
 
-// 同上，匹配到关键字true
-(@array [$($elems:expr,)*] true $($rest:tt)*) => {
-    json_internal!(@array [$($elems,)* json_internal!(true)] $($rest)*)
-};
+    // 同上，匹配到关键字true
+    (@array [$($elems:expr,)*] true $($rest:tt)*) => {
+        json_internal!(@array [$($elems,)* json_internal!(true)] $($rest)*)
+    };
 
-// 同上，匹配到关键字false
-(@array [$($elems:expr,)*] false $($rest:tt)*) => {
-    json_internal!(@array [$($elems,)* json_internal!(false)] $($rest)*)
-};
+    // 同上，匹配到关键字false
+    (@array [$($elems:expr,)*] false $($rest:tt)*) => {
+        json_internal!(@array [$($elems,)* json_internal!(false)] $($rest)*)
+    };
 
-// 同上，匹配到一个数组
-(@array [$($elems:expr,)*] [$($array:tt)*] $($rest:tt)*) => {
-    json_internal!(@array [$($elems,)* json_internal!([$($array)*])] $($rest)*)
-};
+    // 同上，匹配到一个数组
+    (@array [$($elems:expr,)*] [$($array:tt)*] $($rest:tt)*) => {
+        json_internal!(@array [$($elems,)* json_internal!([$($array)*])] $($rest)*)
+    };
 
-// 同上，匹配到一个map/object
-(@array [$($elems:expr,)*] {$($map:tt)*} $($rest:tt)*) => {
-    json_internal!(@array [$($elems,)* json_internal!({$($map)*})] $($rest)*)
-};
+    // 同上，匹配到一个map/object
+    (@array [$($elems:expr,)*] {$($map:tt)*} $($rest:tt)*) => {
+        json_internal!(@array [$($elems,)* json_internal!({$($map)*})] $($rest)*)
+    };
 
-// 匹配到一个表达式，跟随着一个逗号
-(@array [$($elems:expr,)*] $next:expr, $($rest:tt)*) => {
-    json_internal!(@array [$($elems,)* json_internal!($next),] $($rest)*)
-};
+    // 匹配到一个表达式，跟随着一个逗号
+    (@array [$($elems:expr,)*] $next:expr, $($rest:tt)*) => {
+        json_internal!(@array [$($elems,)* json_internal!($next),] $($rest)*)
+    };
 
-// 匹配到最后一个元素
-(@array [$($elems:expr,)*] $last:expr) => {
-    json_internal!(@array [$($elems,)* json_internal!($last)])
-};
+    // 匹配到最后一个元素
+    (@array [$($elems:expr,)*] $last:expr) => {
+        json_internal!(@array [$($elems,)* json_internal!($last)])
+    };
 
-// 匹配到一个逗号
-(@array [$($elems:expr),*] , $($rest:tt)*) => {
-    json_internal!(@array [$($elems,)*] $($rest)*)
-};
+    // 匹配到一个逗号
+    (@array [$($elems:expr),*] , $($rest:tt)*) => {
+        json_internal!(@array [$($elems,)*] $($rest)*)
+    };
 
-// 以上匹配全部失败，标记为一个unexpected token，交由json_unexpected!这个宏处理
-// json_unexpected会返回空（也就是0个token的tt），把整个进入匹配的tokens变成unexpected token
-// 这样的unexpected token会向上传递，导致整个结构体匹配失败
-(@array [$($elems:expr),*] $unexpected:tt $($rest:tt)*) => {
-    json_unexpected!($unexpected)
-};
+    // 以上匹配全部失败，标记为一个unexpected token，交由json_unexpected!这个宏处理
+    // json_unexpected会返回空（也就是0个token的tt），把整个进入匹配的tokens变成unexpected token
+    // 这样的unexpected token会向上传递，导致整个结构体匹配失败
+    (@array [$($elems:expr),*] $unexpected:tt $($rest:tt)*) => {
+        json_unexpected!($unexpected)
+    };
+    ...省略部分
+}
 ```
